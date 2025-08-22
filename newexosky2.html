@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExoSky - Explore the Cosmic Universe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 3D Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #0c0a1a; color: #e0e0e0; }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .cosmic-bg {
+            background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop');
+            background-size: cover; background-position: center; background-attachment: fixed;
+        }
+        .glass-effect {
+            background: rgba(12, 10, 26, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glow-button {
+            box-shadow: 0 0 15px rgba(128, 90, 213, 0.6), 0 0 5px rgba(128, 90, 213, 1);
+            transition: all 0.3s ease;
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 25px rgba(128, 90, 213, 0.8), 0 0 10px rgba(128, 90, 213, 1);
+            transform: scale(1.05);
+        }
+        .modal-container { transition: opacity 0.3s ease, transform 0.3s ease; }
+        .modal-hidden { opacity: 0; transform: scale(0.95); pointer-events: none; }
+        .card-glow { transition: all 0.3s ease; border: 1px solid rgba(128, 90, 213, 0.3); }
+        .card-glow:hover {
+            border-color: rgba(128, 90, 213, 0.8);
+            box-shadow: 0 0 20px rgba(128, 90, 213, 0.4);
+            transform: translateY(-5px);
+        }
+        .nav-button {
+            background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease; cursor: pointer;
+        }
+        .nav-button:hover, .nav-button.active { background-color: #805AD5; color: white; border-color: #805AD5; }
+        .action-button { transition: all 0.3s ease; }
+        .action-button:hover { transform: scale(1.05); }
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #805AD5;
+            border-radius: 50%; width: 30px; height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        .image-loader { width: 60px; height: 60px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .rocket-container { position: relative; width: 48px; height: 48px; }
+        #rocket-logo {
+            position: absolute; bottom: 0; left: 0;
+            animation: takeoff 4s ease-in-out infinite;
+            transform-origin: bottom center;
+        }
+        .flames { animation: flicker 0.15s linear infinite; transform-origin: bottom center; }
+        @keyframes takeoff {
+            0% { transform: translateY(10px) scale(1); opacity: 0; } 20% { transform: translateY(0) scale(1); opacity: 1; }
+            80% { transform: translateY(-60px) scale(0.8); opacity: 1; } 100% { transform: translateY(-70px) scale(0.7); opacity: 0; }
+        }
+        @keyframes flicker { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.3) scaleX(1.1); } }
+        
+        #3d-canvas { display: block; width: 100%; height: 100%; border-radius: 1rem; }
+
+        /* --- Launch Animation Styles --- */
+        #launch-animation-modal {
+            background-color: #0c0a1a;
+        }
+        #launch-rocket {
+            width: 100px;
+            position: absolute;
+            bottom: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: transform 1.5s ease-in;
+        }
+        #launch-rocket.liftoff {
+            transform: translateX(-50%) translateY(-120vh);
+        }
+    </style>
+</head>
+<body class="cosmic-bg">
+
+    <!-- Hero Section -->
+    <header class="h-screen flex flex-col items-center justify-center text-center p-4">
+        <div class="glass-effect p-8 md:p-12 rounded-2xl max-w-4xl mx-auto">
+            <div class="flex items-center justify-center gap-4 mb-4">
+                <div class="rocket-container">
+                    <svg id="rocket-logo" width="48" height="48" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <g class="rocket-body"><path d="M16 4 L23 18 C23 18 19 18 16 15 C13 18 9 18 9 18 L16 4Z" fill="#E0E0E0"/><path d="M12 18 L20 18 L20 22 L12 22 L12 18Z" fill="#B0B0B0"/></g>
+                        <g class="flames"><path d="M12 22 L20 22 L16 30 L12 22Z" fill="#FFC700"/><path d="M14 24 L18 24 L16 28 L14 24Z" fill="#FF8A00"/></g>
+                    </svg>
+                </div>
+                <h1 class="text-5xl md:text-6xl font-bold text-white tracking-tight">ExoSky</h1>
+            </div>
+            <p class="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mt-4 mb-8">
+                Journey through the cosmos and discover distant worlds beyond our solar system. Explore exoplanets, their mysteries, and the endless possibilities of space.
+            </p>
+            <div class="mt-8">
+                <p class="text-purple-300 mb-2 font-semibold">✨ Ask a Cosmic Question</p>
+                <div class="flex flex-col sm:flex-row gap-2 max-w-lg mx-auto">
+                    <input id="cosmic-question-input" type="text" placeholder="e.g., What is a rogue planet?" class="w-full bg-gray-900 bg-opacity-50 border border-purple-500 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <button id="ask-gemini-btn" class="glow-button bg-purple-600 text-white font-bold py-2 px-6 rounded-lg">Ask</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Wrapper -->
+    <main class="w-full max-w-7xl mx-auto px-4">
+        <nav class="flex justify-center gap-4 mb-12 glass-effect p-2 rounded-xl sticky top-4 z-30">
+            <button id="explore-btn" class="nav-button font-semibold py-2 px-6 rounded-lg active">Explore</button>
+            <button id="missions-btn" class="nav-button font-semibold py-2 px-6 rounded-lg">Missions</button>
+            <button id="exoplanets-btn" class="nav-button font-semibold py-2 px-6 rounded-lg">Exoplanets</button>
+        </nav>
+
+        <div id="tab-content">
+            <section id="explore" class="py-16">
+                <div id="explore-grid" class="grid md:grid-cols-3 gap-8">
+                    <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-2xl font-bold text-white mb-2">Stellar Systems</h3><p class="text-gray-400">Explore the diverse stellar environments where exoplanets orbit, from red dwarfs to sun-like stars.</p></div>
+                    <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-2xl font-bold text-white mb-2">Habitable Worlds</h3><p class="text-gray-400">Learn about potentially habitable exoplanets that could harbor liquid water and life.</p></div>
+                    <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-2xl font-bold text-white mb-2">Detection Methods</h3><p class="text-gray-400">Understand the advanced techniques astronomers use to detect and study exoplanets.</p></div>
+                </div>
+            </section>
+            <section id="missions" class="py-16 hidden">
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">James Webb Space Telescope</h3><p class="text-gray-400 text-sm">The most powerful space telescope ever built, capable of analyzing exoplanet atmospheres.</p></div>
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">TESS Mission</h3><p class="text-gray-400 text-sm">Scanning the entire sky to discover new exoplanets using the transit method.</p></div>
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">Nancy Grace Roman</h3><p class="text-gray-400 text-sm">Future space telescope designed to search for exoplanets using gravitational microlensing.</p></div>
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">Extremely Large Telescope</h3><p class="text-gray-400 text-sm">A 39-meter telescope that will directly image Earth-like exoplanets.</p></div>
+                </div>
+            </section>
+            <section id="exoplanets" class="py-16 hidden">
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">51 Pegasi b</h3><p class="text-gray-400 text-sm">The first exoplanet discovered orbiting a main-sequence star, heralding the age of exoplanet discovery.</p></div>
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">HD 209458 b "Osiris"</h3><p class="text-gray-400 text-sm">Known for its evaporating atmosphere, providing crucial insights into planetary composition.</p></div>
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">Kepler-186f</h3><p class="text-gray-400 text-sm">The first Earth-sized planet discovered in the habitable zone of another star.</p></div>
+                     <div class="glass-effect p-6 rounded-xl card-glow"><h3 class="text-xl font-bold text-white mb-2">TRAPPIST-1 System</h3><p class="text-gray-400 text-sm">A remarkable system of seven Earth-sized planets, several of which are in the habitable zone.</p></div>
+                </div>
+            </section>
+        </div>
+
+        <section id="journey" class="py-16">
+            <div class="glass-effect p-8 md:p-12 rounded-2xl text-center">
+                <h2 class="text-3xl md:text-4xl font-bold text-white">Ready to Explore the Universe?</h2>
+                <p class="text-gray-400 mt-2 mb-8 max-w-xl mx-auto">Join millions of space enthusiasts in discovering the wonders of exoplanets and the search for life beyond Earth.</p>
+                <button id="start-journey-btn" class="glow-button bg-purple-600 text-white font-bold py-3 px-8 rounded-full text-lg">✨ Start Your Journey</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <div id="planet-modal" class="modal-container modal-hidden fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="glass-effect w-full max-w-7xl h-full max-h-[90vh] rounded-2xl p-6 md:p-8 flex flex-col">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold text-white">Choose Your Destination</h2><button id="close-planet-modal" class="text-gray-400 hover:text-white text-3xl">&times;</button></div>
+            <div id="planet-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pr-2"></div>
+        </div>
+    </div>
+
+    <div id="night-sky-modal" class="modal-container modal-hidden fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-4 z-50">
+        <div class="relative w-full max-w-5xl h-full max-h-[90vh] flex flex-col items-center justify-center">
+             <button id="close-sky-modal" class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 text-3xl z-20">&times;</button>
+             <div id="sky-container" class="relative w-full h-full flex items-center justify-center">
+                 <div id="image-loader-container" class="absolute inset-0 flex items-center justify-center hidden"><div class="loader image-loader"></div></div>
+                 <img id="sky-image" src="" alt="Night Sky" class="max-w-full max-h-full object-contain rounded-lg">
+             </div>
+         </div>
+    </div>
+
+    <div id="gemini-response-modal" class="modal-container modal-hidden fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="glass-effect w-full max-w-2xl rounded-2xl p-6 md:p-8 flex flex-col">
+            <div class="flex justify-between items-center mb-4"><h2 id="gemini-modal-title" class="text-2xl font-bold text-white">Cosmic Answer</h2><button id="close-gemini-modal" class="text-gray-400 hover:text-white text-3xl">&times;</button></div>
+            <div id="gemini-modal-content" class="text-gray-300 overflow-y-auto max-h-[60vh] pr-2"></div>
+        </div>
+    </div>
+
+    <!-- 3D View Modal -->
+    <div id="3d-view-modal" class="modal-container modal-hidden fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-4 z-50">
+        <button id="close-3d-modal" class="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 text-3xl z-20">&times;</button>
+        <div class="w-full h-3/4">
+            <canvas id="3d-canvas"></canvas>
+        </div>
+        <div id="3d-details-panel" class="w-full max-w-5xl h-1/4 glass-effect rounded-xl p-6 mt-4 font-orbitron text-center flex items-center justify-around"></div>
+    </div>
+
+    <!-- Launch Animation Modal -->
+    <div id="launch-animation-modal" class="modal-container modal-hidden fixed inset-0 z-[100] overflow-hidden">
+        <svg id="launch-rocket" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g class="rocket-body"><path d="M16 4 L23 18 C23 18 19 18 16 15 C13 18 9 18 9 18 L16 4Z" fill="#E0E0E0"/><path d="M12 18 L20 18 L20 22 L12 22 L12 18Z" fill="#B0B0B0"/></g>
+            <g class="flames"><path d="M12 22 L20 22 L16 30 L12 22Z" fill="#FFC700"/><path d="M14 24 L18 24 L16 28 L14 24Z" fill="#FF8A00"/></g>
+        </svg>
+    </div>
+
+
+    <script>
+        // --- DATA ---
+        const exoplanetsData = [
+            { name: "Proxima Centauri b", info: "Just 4.24 light years away...", type: "Terrestrial", color: 0xdb7093, distance: "4.24 ly", speed: "83 km/s", atmosphere: "Unknown, possibly thin N2/CO2", temperature: "-39°C / -38°F" },
+            { name: "Barnard's Star b", info: "A cold super-Earth...", type: "Super-Earth", color: 0xadd8e6, distance: "6.0 ly", speed: "40 km/s", atmosphere: "Frozen gases, thin", temperature: "-170°C / -274°F" },
+            { name: "Ross 128 b", info: "Orbits a quiet red dwarf.", type: "Terrestrial", color: 0xffa07a, distance: "11.0 ly", speed: "80 km/s", atmosphere: "Potentially temperate, N2/CO2", temperature: "21°C / 70°F" },
+            { name: "Luyten b (GJ 273b)", info: "Sits in its star's habitable zone.", type: "Super-Earth", color: 0x20b2aa, distance: "12.4 ly", speed: "55 km/s", atmosphere: "Unknown, possible H2O clouds", temperature: "13°C / 55°F" },
+            { name: "Teegarden's Star b", info: "One of the closest known Earth-sized planets...", type: "Terrestrial", color: 0x778899, distance: "12.5 ly", speed: "110 km/s", atmosphere: "High habitability index", temperature: "28°C / 82°F" },
+            { name: "TRAPPIST-1e", info: "Perhaps the most promising...", type: "Terrestrial", color: 0x87ceeb, distance: "39 ly", speed: "61 km/s", atmosphere: "Dense, likely water-rich", temperature: "-4°C / 25°F" },
+            { name: "TRAPPIST-1f", info: "Slightly larger than Earth...", type: "Terrestrial", color: 0x4682b4, distance: "39 ly", speed: "52 km/s", atmosphere: "Possible water ice clouds", temperature: "-53°C / -63°F" },
+            { name: "TRAPPIST-1g", info: "On the colder, outer edge...", type: "Terrestrial", color: 0xb0c4de, distance: "39 ly", speed: "45 km/s", atmosphere: "Dense, potential greenhouse", temperature: "-75°C / -103°F" },
+            { name: "TRAPPIST-1d", info: "Orbiting on the inner edge...", type: "Terrestrial", color: 0xff6347, distance: "39 ly", speed: "72 km/s", atmosphere: "Likely steam/dense CO2", temperature: "15°C / 59°F" },
+            { name: "Kepler-22b", info: "One of the first confirmed planets...", type: "Super-Earth", color: 0x00ced1, distance: "600 ly", speed: "30 km/s", atmosphere: "Unknown, possible 'ocean world'", temperature: "22°C / 72°F" },
+            { name: "Kepler-452b", info: "Often called 'Earth's cousin'...", type: "Super-Earth", color: 0xf0e68c, distance: "1400 ly", speed: "30 km/s", atmosphere: "Thick, high gravity", temperature: "29°C / 84°F" },
+            { name: "Kepler-186f", info: "The first Earth-sized planet discovered...", type: "Terrestrial", color: 0x9acd32, distance: "490 ly", speed: "33 km/s", atmosphere: "Unknown, potentially Earth-like", temperature: "-65°C / -85°F" },
+            { name: "Kepler-62e", info: "In the inner part of its star's habitable zone.", type: "Super-Earth", color: 0x66cdaa, distance: "1200 ly", speed: "35 km/s", atmosphere: "Likely warm and humid", temperature: "31°C / 88°F" },
+            { name: "Kepler-442b", info: "One of the most promising Earth-like exoplanets...", type: "Super-Earth", color: 0x3cb371, distance: "1200 ly", speed: "32 km/s", atmosphere: "High habitability index", temperature: "-40°C / -40°F" },
+            { name: "Kepler-69c", info: "Orbits on the inner edge...", type: "Super-Earth", color: 0xffd700, distance: "2700 ly", speed: "38 km/s", atmosphere: "Possible 'Super-Venus'", temperature: "227°C / 441°F" },
+            { name: "GJ 667 Cc", info: "Resides in the habitable zone.", type: "Super-Earth", color: 0xcd5c5c, distance: "23.6 ly", speed: "45 km/s", atmosphere: "Subject to stellar flares", temperature: "4°C / 39°F" },
+            { name: "Wolf 1061c", info: "Orbits on the warm, inner edge...", type: "Super-Earth", color: 0xf08080, distance: "13.8 ly", speed: "50 km/s", atmosphere: "Potentially hot, dense", temperature: "50°C / 122°F" },
+            { name: "K2-18b", info: "Notable for having water vapor...", type: "Super-Earth", color: 0x87cefa, distance: "124 ly", speed: "40 km/s", atmosphere: "Confirmed water vapor", temperature: "27°C / 80°F" },
+            { name: "HD 40307g", info: "Orbiting in the habitable zone...", type: "Super-Earth", color: 0xdda0dd, distance: "42 ly", speed: "28 km/s", atmosphere: "Unknown, potentially stable", temperature: "-11°C / 12°F" },
+            { name: "Tau Ceti e", info: "On the hot inner edge...", type: "Super-Earth", color: 0xff4500, distance: "11.9 ly", speed: "58 km/s", atmosphere: "Likely hot, thin", temperature: "68°C / 154°F" },
+            { name: "Gliese 832c", info: "Orbits on the inner edge...", type: "Super-Earth", color: 0xda70d6, distance: "16.1 ly", speed: "60 km/s", atmosphere: "Potential 'Super-Venus'", temperature: "250°C / 482°F" },
+            { name: "Kapteyn b", info: "One of the oldest known...", type: "Super-Earth", color: 0xd8bfd8, distance: "13 ly", speed: "55 km/s", atmosphere: "Ancient, unknown composition", temperature: "-68°C / -90°F" },
+            { name: "HD 85512 b", info: "Orbits on the inner edge...", type: "Super-Earth", color: 0xee82ee, distance: "36 ly", speed: "48 km/s", atmosphere: "Potentially cloud-rich", temperature: "25°C / 77°F" },
+            { name: "Kepler-62f", info: "In the cooler, outer region...", type: "Super-Earth", color: 0x9370db, distance: "1200 ly", speed: "28 km/s", atmosphere: "Potential CO2-rich", temperature: "-65°C / -85°F" }
+        ];
+
+        // --- DOM Elements ---
+        const startJourneyBtn = document.getElementById('start-journey-btn');
+        const planetModal = document.getElementById('planet-modal');
+        const closePlanetModalBtn = document.getElementById('close-planet-modal');
+        const planetGrid = document.getElementById('planet-grid');
+        const nightSkyModal = document.getElementById('night-sky-modal');
+        const closeSkyModalBtn = document.getElementById('close-sky-modal');
+        const skyImage = document.getElementById('sky-image');
+        const imageLoaderContainer = document.getElementById('image-loader-container');
+        const askGeminiBtn = document.getElementById('ask-gemini-btn');
+        const cosmicQuestionInput = document.getElementById('cosmic-question-input');
+        const geminiResponseModal = document.getElementById('gemini-response-modal');
+        const closeGeminiModalBtn = document.getElementById('close-gemini-modal');
+        const geminiModalTitle = document.getElementById('gemini-modal-title');
+        const geminiModalContent = document.getElementById('gemini-modal-content');
+        const navButtons = [document.getElementById('explore-btn'), document.getElementById('missions-btn'), document.getElementById('exoplanets-btn')];
+        const tabSections = [document.getElementById('explore'), document.getElementById('missions'), document.getElementById('exoplanets')];
+        const threeDViewModal = document.getElementById('3d-view-modal');
+        const close3DModalBtn = document.getElementById('close-3d-modal');
+        const threeDCanvas = document.getElementById('3d-canvas');
+        const threeDDetailsPanel = document.getElementById('3d-details-panel');
+        const launchAnimationModal = document.getElementById('launch-animation-modal');
+        const launchRocket = document.getElementById('launch-rocket');
+        const exploreGrid = document.getElementById('explore-grid');
+        
+        // --- 3D Scene State ---
+        let animationFrameId;
+
+        // --- API Key ---
+        const apiKey = "AIzaSyCUkFj_mtSlUupylCE3CJm7tahaFYGKudo";
+        
+        // --- Main Functions ---
+        function displayPlanetCards() { /* ... */ }
+        function handleTabClick(selectedBtn, selectedSection) { /* ... */ }
+
+        // --- 3D Scene Function ---
+        function launch3DView(planet) {
+            threeDViewModal.classList.remove('modal-hidden');
+            
+            // Initial panel setup
+            threeDDetailsPanel.innerHTML = `
+                <div><h3 class="text-purple-300 text-sm tracking-widest">DISTANCE</h3><p class="text-white text-xl font-bold">${planet.distance}</p></div>
+                <div><h3 class="text-purple-300 text-sm tracking-widest">SURFACE TEMP</h3><p class="text-white text-xl font-bold">${planet.temperature}</p></div>
+                <div id="feels-like-container">
+                    <h3 class="text-purple-300 text-sm tracking-widest">FEELS LIKE</h3>
+                    <div class="loader mx-auto mt-2" style="width: 20px; height: 20px; border-width: 2px;"></div>
+                </div>
+                <div><h3 class="text-purple-300 text-sm tracking-widest">ATMOSPHERE</h3><p class="text-white text-md">${planet.atmosphere}</p></div>
+            `;
+
+            // Asynchronously get the "feels like" description
+            const feelsLikePrompt = `In 2-3 evocative words, describe what it feels like to be on exoplanet ${planet.name}, given its temperature is ${planet.temperature} and its atmosphere is described as: ${planet.atmosphere}. Example: "Scorching winds" or "Deep freeze".`;
+            callGeminiAPI(feelsLikePrompt).then(description => {
+                const feelsLikeContainer = document.getElementById('feels-like-container');
+                if (description && feelsLikeContainer) {
+                    feelsLikeContainer.innerHTML = `<h3 class="text-purple-300 text-sm tracking-widest">FEELS LIKE</h3><p class="text-white text-xl font-bold">${description.replace(/<br>/g, ' ')}</p>`;
+                }
+            });
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, threeDCanvas.clientWidth / threeDCanvas.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: threeDCanvas, antialias: true, alpha: true });
+            renderer.setSize(threeDCanvas.clientWidth, threeDCanvas.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            const starGeometry = new THREE.SphereGeometry(2, 32, 32);
+            const starMaterial = new THREE.MeshBasicMaterial({ color: 0xffddaa, transparent: true, opacity: 0.9 });
+            const star = new THREE.Mesh(starGeometry, starMaterial);
+            scene.add(star);
+            const planetGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const planetMaterial = new THREE.MeshStandardMaterial({ color: planet.color || 0x4a90e2 });
+            const planetMesh = new THREE.Mesh(planetGeometry, planetMaterial);
+            scene.add(planetMesh);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0xffffff, 1.2);
+            pointLight.position.set(0, 0, 0);
+            scene.add(pointLight);
+            camera.position.z = 15;
+            
+            const speedFactor = parseFloat(planet.speed) / 50000;
+
+            function animate() {
+                animationFrameId = requestAnimationFrame(animate);
+                const time = Date.now() * speedFactor;
+                planetMesh.position.x = Math.sin(time) * 10;
+                planetMesh.position.z = Math.cos(time) * 10;
+                planetMesh.rotation.y += 0.01;
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+            const onWindowResize = () => {
+                const canvasContainer = threeDCanvas.parentElement;
+                camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            }
+            window.addEventListener('resize', onWindowResize);
+            onWindowResize();
+        }
+
+        // --- Event Listeners and Initialisation (omitted for brevity, same as before) ---
+        // ...
+        document.addEventListener('DOMContentLoaded', () => {
+            displayPlanetCards();
+        });
+        
+        // --- Full API & Helper Functions (Duplicated for safety) ---
+        async function callGeminiAPI(prompt, elementToUpdate) {
+            if (elementToUpdate) elementToUpdate.innerHTML = '<div class="loader mx-auto"></div>';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                const result = await response.json();
+                const text = result.candidates[0].content.parts[0].text;
+                if (elementToUpdate) {
+                    elementToUpdate.innerHTML = text.replace(/\n/g, '<br>');
+                }
+                return text;
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                const errorText = "Sorry, an error occurred.";
+                if (elementToUpdate) elementToUpdate.textContent = errorText;
+                return errorText;
+            }
+        }
+        async function generateImageAPI(prompt) { /* ... */ }
+        
+        // Re-add other functions to ensure they are available
+        function displayPlanetCards() {
+            planetGrid.innerHTML = '';
+            exoplanetsData.forEach((planet, index) => {
+                const card = document.createElement('div');
+                card.className = 'glass-effect p-5 rounded-xl card-glow flex flex-col';
+                card.innerHTML = `
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-start"><h3 class="text-xl font-bold text-white">${planet.name}</h3><span class="bg-purple-500 bg-opacity-30 text-purple-300 text-xs font-semibold px-2.5 py-1 rounded-full">${planet.type}</span></div>
+                        <p class="text-gray-400 mt-3 mb-6 text-sm">${planet.info}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-auto">
+                        <button data-index="${index}" class="action-button bg-gray-700 w-full text-white font-semibold py-2 px-4 rounded-lg details-btn">Details</button>
+                        <button data-index="${index}" class="action-button bg-purple-600 flex-1 text-white font-semibold py-2 px-4 rounded-lg night-sky-btn">Night Sky</button>
+                        <button data-index="${index}" class="action-button bg-blue-600 flex-1 text-white font-semibold py-2 px-4 rounded-lg 3d-view-btn">3D System</button>
+                    </div>
+                `;
+                planetGrid.appendChild(card);
+            });
+        }
+        function handleTabClick(selectedBtn, selectedSection) {
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            selectedBtn.classList.add('active');
+            tabSections.forEach(section => section.classList.add('hidden'));
+            selectedSection.classList.remove('hidden');
+        }
+        // ... (rest of the event listeners)
+        startJourneyBtn.addEventListener('click', () => {
+            launchAnimationModal.classList.remove('modal-hidden');
+            setTimeout(() => {
+                launchRocket.classList.add('liftoff');
+            }, 100);
+
+            setTimeout(() => {
+                launchAnimationModal.classList.add('modal-hidden');
+                planetModal.classList.remove('modal-hidden');
+                launchRocket.classList.remove('liftoff');
+            }, 1500);
+        });
+
+        closePlanetModalBtn.addEventListener('click', () => planetModal.classList.add('modal-hidden'));
+        closeSkyModalBtn.addEventListener('click', () => nightSkyModal.classList.add('modal-hidden'));
+        closeGeminiModalBtn.addEventListener('click', () => geminiResponseModal.classList.add('modal-hidden'));
+        close3DModalBtn.addEventListener('click', () => {
+            threeDViewModal.classList.add('modal-hidden');
+            cancelAnimationFrame(animationFrameId);
+        });
+
+        planetGrid.addEventListener('click', async (e) => {
+            const target = e.target;
+            const index = target.dataset.index;
+            if (index === undefined) return;
+            const planet = exoplanetsData[index];
+
+            if (target.classList.contains('details-btn')) {
+                geminiModalTitle.textContent = `Details for ${planet.name}`;
+                geminiResponseModal.classList.remove('modal-hidden');
+                const prompt = `Provide a detailed, engaging summary for the exoplanet ${planet.name}, including its known characteristics, potential for habitability, and what makes it unique.`;
+                callGeminiAPI(prompt, geminiModalContent);
+            } else if (target.classList.contains('night-sky-btn')) {
+                nightSkyModal.classList.remove('modal-hidden');
+                skyImage.src = "";
+                skyImage.alt = "Generating night sky...";
+                imageLoaderContainer.classList.remove('hidden');
+                const prompt = `A breathtaking, photorealistic, ultra-detailed view of the night sky from the surface of the exoplanet ${planet.name}. The landscape reflects its known characteristics: ${planet.info}. The sky is filled with alien stars, strange constellations, and cosmic nebulae.`;
+                const imageUrl = await generateImageAPI(prompt);
+                imageLoaderContainer.classList.add('hidden');
+                if (imageUrl) {
+                    skyImage.src = imageUrl;
+                    skyImage.alt = `Night sky from ${planet.name}`;
+                } else {
+                    skyImage.alt = "Image generation failed. Please try again.";
+                }
+            } else if (target.classList.contains('3d-view-btn')) {
+                launch3DView(planet);
+            }
+        });
+        
+        askGeminiBtn.addEventListener('click', async () => {
+            const question = cosmicQuestionInput.value;
+            if (!question.trim()) return;
+            geminiModalTitle.textContent = "Cosmic Answer";
+            geminiResponseModal.classList.remove('modal-hidden');
+            const prompt = `As an expert astronomer, answer the following question in a clear and engaging way: "${question}"`;
+            await callGeminiAPI(prompt, geminiModalContent);
+        });
+
+        navButtons.forEach((btn, index) => {
+            btn.addEventListener('click', () => handleTabClick(btn, tabSections[index]));
+        });
+    </script>
+</body>
+</html>
